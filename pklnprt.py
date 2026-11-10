@@ -457,34 +457,45 @@ def wb2_copni(h):
     return out
 
 def wb2_qc(h, adj_k, adj_z, adj_p, theta_df, beta, populasi, raw, defl):
+    """Modul Quality Control: 15 poin konsistensi."""
     cek = []
     yoy = growth_yoy(h); last_q = st.session_state.periode
     def add(no, nama, ok, ket):
         cek.append({"No": no, "Pemeriksaan": nama,
                     "Status": "✅ LULUS" if ok else "⚠️ PERHATIAN", "Keterangan": ket})
+
+    # Ambil label triwulan yang ADA di index (aman dari KeyError)
+    q_kurban = [q for q in adj_k.index if q in ("2024Q2", "2025Q2")]
+    q_zakat  = [q for q in adj_z.index if q in ("2024Q1", "2025Q1")]
+    q_pilkada = [q for q in adj_p.index if year_of(q) == 2024]
+
     add(1, "Lonjakan musiman Kurban (Iduladha Q2)",
-        adj_k.loc[["2024Q2", "2025Q2"]].sum().sum() > 0,
-        "Adjustment kurban terisi pada triwulan Iduladha.")
+        float(adj_k.loc[q_kurban].sum().sum()) > 0 if q_kurban else False,
+        "Adjustment kurban terisi pada triwulan Iduladha."
+        if (q_kurban and float(adj_k.loc[q_kurban].sum().sum()) > 0)
+        else "Adjustment kurban Q2 kosong - periksa kembali.")
     add(2, "Lonjakan musiman Zakat (Ramadan Q1)",
-        adj_z.loc[["2024Q1", "2025Q1"]].sum().sum() > 0,
-        "Adjustment zakat terisi pada triwulan Ramadan.")
+        float(adj_z.loc[q_zakat].sum().sum()) > 0 if q_zakat else False,
+        "Adjustment zakat terisi pada triwulan Ramadan."
+        if (q_zakat and float(adj_z.loc[q_zakat].sum().sum()) > 0)
+        else "Adjustment zakat Q1 kosong - periksa kembali.")
     p24 = float(h.loc[h.index.map(year_of) == 2024, "Parpol"].sum())
     p23 = float(h.loc[h.index.map(year_of) == 2023, "Parpol"].sum())
     add(3, "Anomali tahun politik Parpol (2024 vs 2023)",
-        p24 > p23 and adj_p.loc["2024"].sum().sum() > 0,
-        f"Parpol 2024 ({fmt_num(p24)}) > 2023 ({fmt_num(p23)}) — wajar.")
+        p24 > p23 and (float(adj_p.loc[q_pilkada].sum().sum()) > 0 if q_pilkada else False),
+        f"Parpol 2024 ({fmt_num(p24)}) > 2023 ({fmt_num(p23)}) - wajar.")
     for i, c in enumerate(LEMBAGA_COLS):
         v = float(yoy.loc[last_q, c]) if last_q in yoy.index else 0.0
         add(4 + i, f"Outlier YoY {c} ({last_q})", not (v > 20 or v < -15),
             f"YoY = {fmt_num(v)}% (ambang -15% s.d. 20%).")
-    add(10, "Balancing factor Beta wajar (0.90–1.10)", 0.90 <= beta <= 1.10,
+    add(10, "Balancing factor Beta wajar (0.90-1.10)", 0.90 <= beta <= 1.10,
         f"Beta = {beta:.4f}.")
     ext = theta_df[(theta_df["Theta"] < 0.8) | (theta_df["Theta"] > 1.2)]
-    add(11, "Theta SUT 2025 wajar (0.8–1.2)", len(ext) == 0,
+    add(11, "Theta SUT 2025 wajar (0.8-1.2)", len(ext) == 0,
         "Semua Theta dalam rentang." if len(ext) == 0 else f"Di luar rentang: {', '.join(ext['Lembaga'])}.")
     add(12, "Deflator positif & konsisten", bool((defl > 0).all()), "Seluruh deflator > 0.")
     add(13, "Konsistensi ADHB/ADHK terhadap deflator", True,
-        "ADHK_Final = ADHB_Final/Deflator×100 diterapkan seluruh baris.")
+        "ADHK_Final = ADHB_Final/Deflator x 100 diterapkan seluruh baris.")
     tot_pop = int(populasi["Jumlah"].head(5).sum()) + int(st.session_state.pop_rinci["Jumlah"].sum())
     add(14, "Populasi lembaga terisi (>0)", tot_pop > 0, f"Total populasi = {tot_pop} lembaga.")
     add(15, "Sampel SKLNP tersedia", raw["triwulan"].nunique() >= 8,
