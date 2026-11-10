@@ -421,13 +421,15 @@ def wb2_theta(sut, e1_h):
     return pd.DataFrame(rows)
 
 def wb2_deflator(ihk, ipd):
+    """Sheet E4: deflator 2025=100 (IHK Umum) + backcast via rasio IPD 2010=100."""
     defl = pd.Series(index=QUARTERS, dtype=float)
     for q in Q_DEFL_AVAILABLE:
         defl[q] = ihk.loc[q, "IHK Umum"]
     i0 = QUARTERS.index(min(Q_DEFL_AVAILABLE))
     for i in range(i0 - 1, -1, -1):
         q, qn = QUARTERS[i], QUARTERS[i + 1]
-        defl[q] = defl[qn] * safe_div(float(ipd[q].mean()), float(ipd[qn].mean()), 1.0)
+        defl[q] = defl[qn] * safe_div(float(ipd.loc[q].mean()),
+                                      float(ipd.loc[qn].mean()), 1.0)
     return defl.astype(float)
 
 def wb2_inisial(e1_h, theta_df, defl):
