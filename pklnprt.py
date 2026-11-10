@@ -589,9 +589,8 @@ with st.sidebar:
                 st.error(f"❌ File tidak valid: {e}")
 
     st.divider()
-    if st.button("🔄 Reset & Muat Ulang Simulasi Data BPS", use_container_width=True):
-        reset_simulasi()
-        st.rerun()
+    st.button("🔄 Reset & Muat Ulang Simulasi Data BPS",
+              use_container_width=True, on_click=reset_simulasi)
 
 # ---------------------------------------------------------------------
 # 9. TAB UTAMA
@@ -644,7 +643,7 @@ with tab_wb1:
             column_config={"Jumlah": st.column_config.NumberColumn(min_value=0)})
         st.markdown("**Rincian Lembaga Keagamaan** (totalnya = populasi kode 6)")
         st.session_state.pop_rinci = st.data_editor(
-            st.session_state.pop_rinci, use_container_width=True, key="pop_rinci",
+            st.session_state.pop_rinci, use_container_width=True, key="pop_rinci_ed",
             column_config={"Jumlah": st.column_config.NumberColumn(min_value=0)})
         st.caption(f"Total Lembaga Keagamaan = {int(st.session_state.pop_rinci['Jumlah'].sum())}")
     with s3:
